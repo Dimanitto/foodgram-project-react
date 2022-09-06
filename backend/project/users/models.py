@@ -1,0 +1,33 @@
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+
+
+class User(AbstractUser):
+    # TODO "is_subscribed": false ?   and Subscriber model USER=FK SUBCRIBER=FK
+    first_name = models.CharField('Имя', max_length=150)
+    last_name = models.CharField('Фамилия', max_length=150)
+    is_subscribed = models.BooleanField('Подписка', default=False)
+
+    REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
+
+
+class Subscriber(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Пользователь',
+        related_name='follower'
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Автор',
+        related_name='subscribers'
+    )
+
+    class Meta:
+        verbose_name = 'Подписка'
+        verbose_name_plural = 'Подписки'
+
+    def __str__(self):
+        return f'{self.user} following {self.author}'
