@@ -5,15 +5,6 @@ from users.models import User
 
 class Ingredient(models.Model):
     name = models.CharField('Название', max_length=255)
-    count = models.PositiveIntegerField(
-        'Количество',
-        validators=[
-            MinValueValidator(
-                1,
-                message='Количество должно быть > 0'
-            )
-        ]
-    )
     measurement_unit = models.CharField('Единица измерения', max_length=255)
 
     def __str__(self) -> str:
@@ -38,22 +29,20 @@ class Tag(models.Model):
 
 
 class Recipe(models.Model):
-    # TODO "is_favorited": true, "is_in_shopping_cart": true, Связная таблица для них
     author = models.ForeignKey(
         User,
         verbose_name='Автор публикации',
         on_delete=models.CASCADE,
         related_name='recipes'
     )
-    is_favorited = models.BooleanField('В избранном', default=False)
-    is_in_shopping_cart = models.BooleanField('В списке покупок', default=False)
     name = models.CharField('Назввание', max_length=255)
     image = models.ImageField('Картинка', upload_to='recipes/')
     text = models.TextField('Описание')
     ingredients = models.ManyToManyField(
         Ingredient,
         verbose_name='Ингредиенты',
-        related_name='recipe_ingredients'
+        related_name='recipe_ingredients',
+        through='IngredientAmount'
     )
     tags = models.ManyToManyField(
         Tag,
@@ -74,6 +63,7 @@ class Recipe(models.Model):
         return f'{self.author} - {self.name}'
 
     class Meta:
+        ordering = ["-id"]
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
 
@@ -117,14 +107,26 @@ class ShoppingCart(models.Model):
     class Meta:
         verbose_name = 'Список покупок'
         verbose_name_plural = 'Список покупок'
+        constraints = [
+            models.UniqueConstraint(
+                fields=('user', 'recipe'), name='unique_shopping_cart'
+            ),
+        ]
 
     def __str__(self) -> str:
         return f'{self.user}, {self.recipe.name}'
 
 
 class IngredientAmount(models.Model):
+    recipe = models.ForeignKey(
+        Recipe,
+        on_delete=models.CASCADE,
+        related_name='ingredientamounts',
+    )
     amount = models.FloatField(
         'Количество',
+        blank=True,
+        null=True,
         validators=[MinValueValidator(0.01)]
     )
     ingredient = models.ForeignKey(

@@ -1,14 +1,16 @@
 from django.db import models
+from django.db.models import Q, F
 from django.contrib.auth.models import AbstractUser
 
 
 class User(AbstractUser):
-    # TODO "is_subscribed": false ?   and Subscriber model USER=FK SUBCRIBER=FK
     first_name = models.CharField('Имя', max_length=150)
     last_name = models.CharField('Фамилия', max_length=150)
-    is_subscribed = models.BooleanField('Подписка', default=False)
 
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
+
+    def is_subscriber(self, author) -> bool:
+        return Subscriber.objects.filter(user=self, author=author).exists()
 
 
 class Subscriber(models.Model):
@@ -28,6 +30,12 @@ class Subscriber(models.Model):
     class Meta:
         verbose_name = 'Подписка'
         verbose_name_plural = 'Подписки'
+        constraints = [
+            models.CheckConstraint(
+                check=~Q(user=F('author')),
+                name='user_is_not_author'
+            )
+        ]
 
     def __str__(self):
         return f'{self.user} following {self.author}'

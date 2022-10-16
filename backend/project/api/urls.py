@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/', include(router_v1.urls)),
     path('api/', include('users.urls')),
     path('api/recipes/<int:id>/favorite/', views.FavoriteView.as_view(), name='favorite'),
+    path('api/recipes/<int:id>/shopping_cart/', views.ShoppingCartView.as_view(), name='shopping_cart'),
     path('api/ingredients/', views.IngredientListView.as_view(), name='ingredients'),
     path('api/ingredients/<int:id>/', views.IngredientDetailView.as_view(), name='ingredients_detail'),
 ]

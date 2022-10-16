@@ -1,18 +1,18 @@
-from django.urls import include, path
+from django.urls import include, path, re_path
 from . import views
-# from users import views
-# from views import SubscriberViewSet
+from djoser.views import TokenDestroyView
 from rest_framework.routers import DefaultRouter
 
 
 app_name = 'users'
 
 router = DefaultRouter()
-router.register('users/subscriptions/', views.SubscriberViewSet, basename='subscriptions')
+router.register("users", views.CustomUserViewSet)
 
 urlpatterns = [
-    path('', include('djoser.urls')),
-    path('auth/', include('djoser.urls.authtoken')),
+    path('users/subscriptions/', views.SubscriberViewSet.as_view(), name='subscriptions'),
+    path('users/<int:id>/subscribe/', views.SubscribeViewSet.as_view(), name='subscribe'),
     path('', include(router.urls)),
-    # path('users/subscriptions/', )
+    re_path(r"^auth/token/login/?$", views.CustomTokenCreateView.as_view(), name="login"),
+    re_path(r"^auth/token/logout/?$", TokenDestroyView.as_view(), name="logout"),
 ]

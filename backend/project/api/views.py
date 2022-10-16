@@ -1,14 +1,15 @@
-from django.shortcuts import render
-from django.core.exceptions import ObjectDoesNotExist, ValidationError, PermissionDenied
+from django.core.exceptions import ValidationError, PermissionDenied
 from core import models
-from rest_framework.pagination import LimitOffsetPagination
+from django.http import HttpResponse
+from django.db import IntegrityError
+from rest_framework.decorators import action
+from .datatools.reports import ReportCsv
+from .filters import RecipeFilter, IngredientFilter
+from .pagination import CustomPagination
 
 from . import serializers
-from .mixins import ListCreateDeleteViewSet
-from users.models import User
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.pagination import PageNumberPagination
 from rest_framework import viewsets, permissions, authentication, status, generics
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -24,10 +25,26 @@ class RecipeViewSet(viewsets.ModelViewSet):
     queryset = models.Recipe.objects.all()
     serializer_class = serializers.RecipeSerializer
     filter_backends = (DjangoFilterBackend,)
-    # TODO не работает поиск по slug пишем свои фильтры?
-    filterset_fields = ('is_favorited', 'is_in_shopping_cart', 'author', 'tags__slug')
-    # for ?limit=N
-    pagination_class = LimitOffsetPagination
+    filterset_class = RecipeFilter
+    pagination_class = CustomPagination
+
+    def get_permissions(self):
+        # Для неавторизованного пользователя
+        if self.action == 'list' or self.action == 'retrieve':
+            return []
+        return super().get_permissions()
+
+    @action(detail=False, methods=['get'])
+    def download_shopping_cart(self, request) -> HttpResponse:
+        user = request.user
+        qs = models.ShoppingCart.objects.filter(user=user)
+        if not qs:
+            raise ValidationError('Нет записей списка покупок')
+        columns = [
+            'Название', 'Количество', 'Единица измерения'
+        ]
+        response = ReportCsv(qs, columns, user.first_name).get_http_response()
+        return response
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -37,12 +54,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def get_serializer_class(self):
-        # print(dir(self.request))
-        # print(self.request.data)
-        if self.request.data:
-            print('yes!')
+        if self.action == 'create' or self.action == 'partial_update':
             return serializers.RecipeCreateSerializer
-        print('no!')
         return serializers.RecipeSerializer
 
 
@@ -86,6 +99,8 @@ class FavoriteView(APIView):
 class IngredientListView(generics.ListAPIView):
     queryset = models.Ingredient.objects.all()
     serializer_class = serializers.IngredientSerializer
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = IngredientFilter
 
 
 class IngredientDetailView(generics.RetrieveAPIView):
@@ -94,4 +109,35 @@ class IngredientDetailView(generics.RetrieveAPIView):
     lookup_field = 'id'
 
 
+class ShoppingCartView(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = serializers.FavoriteSerializer
 
+    def post(self, request, id: int):
+        user = request.user
+        try:
+            favorite = models.ShoppingCart.objects.create(user=user, recipe_id=id)
+            serializer = serializers.FavoriteSerializer(favorite, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except IntegrityError:
+            return Response(
+                {'error': 'Ошибка добавления в список покупок'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def delete(self, request, id: int):
+        user = request.user
+        if not models.ShoppingCart.objects.filter(
+                user=user, recipe_id=id).exists():
+            return Response(
+                {
+                    'error':
+                        (f'Ошибка удаление из списка покупок. '
+                         f'Рецептa "{id}" нету в списке покупок')
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        models.ShoppingCart.objects.filter(
+            user=user, recipe_id=id).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
