@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError, PermissionDenied
 from core import models
 from django.http import HttpResponse
 from django.db import IntegrityError
+from django.db.models import Sum
 from rest_framework.decorators import action
 from .datatools.reports import ReportCsv
 from .filters import RecipeFilter, IngredientFilter
@@ -43,6 +44,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
         columns = [
             'Название', 'Количество', 'Единица измерения'
         ]
+        qs = qs.values(
+            'recipe__ingredientamounts__ingredient__name',
+            'recipe__ingredientamounts__ingredient__measurement_unit'
+        ).annotate(sum=Sum('recipe__ingredientamounts__amount'))
+
         response = ReportCsv(qs, columns, user.first_name).get_http_response()
         return response
 

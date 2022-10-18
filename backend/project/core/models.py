@@ -16,9 +16,9 @@ class Ingredient(models.Model):
 
 
 class Tag(models.Model):
-    name = models.CharField('Название', max_length=255)
-    color = models.CharField('Цветовой HEX-код', max_length=255)
-    slug = models.CharField('Slug', max_length=255)
+    name = models.CharField('Название', max_length=255, unique=True)
+    color = models.CharField('Цветовой HEX-код', max_length=255, unique=True)
+    slug = models.CharField('Slug', max_length=255, unique=True)
 
     def __str__(self) -> str:
         return f'{self.name} {self.color}'
@@ -58,12 +58,13 @@ class Recipe(models.Model):
             )
         ]
     )
+    pub_date = models.DateTimeField('Дата публикации', auto_now_add=True)
 
     def __str__(self) -> str:
         return f'{self.author} - {self.name}'
 
     class Meta:
-        ordering = ["-id"]
+        ordering = ["-pub_date"]
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
 
@@ -85,6 +86,11 @@ class Favorite(models.Model):
     class Meta:
         verbose_name = 'Избранное'
         verbose_name_plural = 'Избранное'
+        constraints = [
+            models.UniqueConstraint(
+                fields=('user', 'recipe'), name='unique_favorite'
+            ),
+        ]
 
     def __str__(self) -> str:
         return f'{self.user}, {self.recipe.name}'
