@@ -8,8 +8,14 @@ class Ingredient(admin.ModelAdmin):
     list_filter = ('name',)
 
 
+class IngredientInline(admin.TabularInline):
+    model = models.Recipe.ingredients.through
+    extra = 0
+
+
 @admin.register(models.Recipe)
 class Recipe(admin.ModelAdmin):
+    inlines = (IngredientInline, )
     list_display = ('name', 'author')
     list_filter = ('author', 'name', 'tags')
     readonly_fields = ('count',)
