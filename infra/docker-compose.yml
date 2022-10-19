@@ -2,7 +2,7 @@ version: '3.3'
 services:
 
   db:
-    image: postgres:13.0-alpine
+    image: postgres:13.3
     volumes:
       - /var/lib/postgresql/data/
     env_file:
@@ -16,7 +16,7 @@ services:
       - ../frontend/:/app/result_build/
 
   backend:
-    image: dimanitto/foodgram-project:latest
+    build: ../backend/foodgram
     restart: always
     volumes:
       - static_value:/app/static/
