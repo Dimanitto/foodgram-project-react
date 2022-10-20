@@ -144,7 +144,7 @@ class TagsCreateSerializer(serializers.PrimaryKeyRelatedField):
 class RecipeCreateSerializer(serializers.ModelSerializer):
     image = ImageDecode()
     tags = TagsCreateSerializer(queryset=models.Tag.objects.all(), many=True)
-    ingredients = AmountSerializer(many=True, read_only=True, source='ingredientamounts')
+    ingredients = AmountSerializer(many=True, source='ingredientamounts')
     author = AuthorSerializer(read_only=True)
 
     class Meta:
@@ -152,7 +152,7 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def create(self, validated_data):
-        ingredients = self.initial_data['ingredients']
+        ingredients = validated_data.pop('ingredientamounts')
         tags = validated_data.pop('tags')
 
         request = self.context['request']
@@ -162,11 +162,11 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         recipe.tags.set(tags)
         amounts = []
         for ingredient in ingredients:
-            instance = ingredient['id']
+            instance = ingredient['ingredient']
             models.IngredientAmount.objects.create(
-                recipe=recipe, ingredient_id=instance, amount=ingredient['amount']
+                recipe=recipe, ingredient=instance, amount=ingredient['amount']
             )
-            amounts.append(instance)
+            amounts.append(instance.id)
         recipe.ingredients.set(amounts)
         return recipe
 
@@ -178,7 +178,8 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
 
         ingredients = self.initial_data['ingredients']
         tags = validated_data.pop('tags')
-        instance.image = validated_data.get('image')
+        if validated_data.get('image'):
+            instance.image = validated_data.get('image')
         instance.name = validated_data.get('name')
         instance.text = validated_data.get('text')
         instance.cooking_time = validated_data.get('cooking_time')
